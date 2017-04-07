@@ -1,0 +1,29 @@
+truncated bptt??
+embed words before feeding to NN
+init weights to random
+specify places that you can do W[x] instead of W*x
+read comments
+what is decoder LSTM equation?
+change all dims and axes to -1(or -n)
+decoder initial states
+
+hidden size of the last decoder layer os VOCAB_SIZE but others is HIDDEN_SIZE
+
+how tensorflow parallelizes
+
+GPU
+
+object oriented
+
+visualization
+
+I suppose that the output of the decoder at layer 8 is used as decoder layer 1 input: if yes==>parallelism, if no==> what the input is?
+
+change reshape to expand_dimes
+
+do not use scan==>use only one matrix multiplication
+
+
+
+
+how can we go from prob to loss (maximum likelihood)
