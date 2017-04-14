@@ -3,4 +3,4 @@ env/
 data/
 chache/
 .idea/
-__psycache__/
+__pycache__/
