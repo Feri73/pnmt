@@ -1,6 +1,6 @@
 truncated bptt??
 embed words before feeding to NN
-init weights to random
+init weights to random==>don't forget seeds
 specify places that you can do W[x] instead of W*x
 read comments
 what is decoder LSTM equation?
@@ -16,6 +16,10 @@ GPU
 object oriented
 
 visualization
+
+other training methods(Adam)==>use what google has done
+
+self graph in addition to weights
 
 I suppose that the output of the decoder at layer 8 is used as decoder layer 1 input: if yes==>parallelism, if no==> what the input is?
 
