@@ -1,6 +1,6 @@
 cc1plus.exe.core
 env/
 data/
-chache/
+cache/
 .idea/
 __pycache__/

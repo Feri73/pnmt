@@ -31,3 +31,5 @@ do not use scan==>use only one matrix multiplication
 
 
 how can we go from prob to loss (maximum likelihood)
+
+remove print('tmp1') and etc.

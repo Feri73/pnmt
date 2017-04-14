@@ -50,7 +50,7 @@ class Corpus:
             words.append(tmp)
         return words
 
-    def find_tokens(self, sentences, vocab_size):
+    def find_tokens(self, sentences):
         tokens = {}
         sents = []
         for s in sentences:
@@ -63,8 +63,9 @@ class Corpus:
                     tokens[w] += 1
                 else:
                     tokens[w] = 1
-        tokens = dict([(x[0], i) for i, x in enumerate(sorted(list(tokens.items()), key=lambda x: x[1])[0:vocab_size])])
-        tokens['UNK'] = len(tokens) + 1
+        tokens = dict(
+            [(x[0], i) for i, x in enumerate(sorted(list(tokens.items()), key=lambda x: x[1])[0:self.vocab_size - 1])])
+        tokens['UNK'] = len(tokens)
         return tokens, sents
 
     def load_data(self):
@@ -87,9 +88,9 @@ class Corpus:
             for line in file.readlines():
                 sentences.extend(self.find_sentences(line))
             file.close()
-            tokens, sentences = self.find_tokens(self.vocab_size, sentences)
+            tokens, sentences = self.find_tokens(sentences)
             self.vocab_size = min(self.vocab_size, len(tokens))
-            data = tokenize(sentences, tokens)
+            data = self.tokenize(sentences, tokens)
             words = [x[0] for x in sorted(list(tokens.items()), key=lambda x: x[1])]
             index = 0
             with open(path + 'tokens', 'wb+') as file:
@@ -106,31 +107,39 @@ class Corpus:
         self.index = index
         return self.vocab_size
 
-    def next_batch(self, size, save=False):
+    def next_batch(self, size, save=False):  # poor performance
         d_size = self.data.shape[0]
-        print(d_size)
         assert size <= d_size
-        end = (self.index + size - 1) % d_size
+        end = (self.index + size) % d_size
         if end <= self.index:
-            res = self.data[self.index:-1] + self.data[0:end]
+            tmp1 = self.data[self.index:]
+            tmp2 = self.data[0:end]
+            if tmp1.shape[0] == 0:
+                res = tmp2
+            elif tmp2.shape[0] == 0:
+                res = tmp1
+            else:
+                res = tmp1 + tmp2
         else:
-            res = self.data[self.index:self.index + size - 1]
+            res = self.data[self.index:end]
         self.index = end
         if save:
-            path = self.SAVE_DIR + '\\' + self.name
-            with open(path + 'index', 'wb+') as file:
-                pickle.dump(self.index, file)
+            self.save_corpus_state()
         return res
 
+    def tokenize(self, sentences, tokens):  # it fucks the sentences (because of extending them)
+        mm = max([len(s) for s in sentences])
+        result = np.zeros([len(sentences), mm, self.vocab_size])
+        for i, s in enumerate(sentences):
+            for j in range(0, mm):
+                w = s[j] if j < len(s) else 'EOS'
+                if w in tokens:
+                    result[i, j, tokens[w]] = 1
+                else:
+                    result[i, j, tokens['UNK']] = 1
+        return result
 
-def tokenize(sentences, vocab_size, tokens):  # it fucks the sentences (because of extendingg them)
-    mm = max([len(s) for s in sentences])
-    result = np.zeros([len(sentences), mm, vocab_size])
-    for i, s in enumerate(sentences):
-        for j in range(0, mm):
-            w = s[j] if j < len(s) else 'EOS'
-            if w in tokens:
-                result[i, j, tokens[w]] = 1
-            else:
-                result[i, j, tokens['UNK']] = 1
-    return result
+    def save_corpus_state(self):
+        path = self.SAVE_DIR + '\\' + self.name
+        with open(path + 'index', 'wb+') as file:
+            pickle.dump(self.index, file)
