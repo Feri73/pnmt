@@ -28,7 +28,7 @@ change reshape to expand_dimes
 do not use scan==>use only one matrix multiplication
 
 
-
+everywhere I use np.zeros or sth==>use float32
 
 how can we go from prob to loss (maximum likelihood)
 

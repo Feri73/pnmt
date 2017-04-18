@@ -183,11 +183,17 @@ class Translator:
                 hid_size = self.OUT_VOCAB_SIZE
             dec_layers.append(self.add_decoder_layer(inp, contexts, hid_size, last_hid_size))
 
-        self.trans = tf.scan(lambda a, x: tf.nn.softmax(x), dec_layers[-1])
+        # self.trans = tf.scan(lambda a, x: tf.nn.softmax(x), dec_layers[-1])
+
+        # self.gg = dec_layers
+        # self.conts = contexts
+
+        self.trans = tf.nn.softmax(dec_layers[-1], dim=1)
 
         self.cross_entropy = tf.reduce_mean(-tf.reduce_sum(self.out_seq * tf.log(self.trans), reduction_indices=[
             1]))  # use built in tensorflow methods, use indexing instead of multiplying
         self.train_step = tf.train.GradientDescentOptimizer(self.RATE).minimize(self.cross_entropy)
+        # self.train_step = tf.train.AdamOptimizer(self.RATE).minimize(self.cross_entropy)
         self.init_op = tf.global_variables_initializer()
 
         self.sess = tf.Session()
@@ -211,13 +217,16 @@ class Translator:
         path = self.SAVE_DIR + "\\" + self.name
         saver.save(self.sess, path)
 
+    def helped_translate(self, input, output):
+        return self.sess.run(self.trans, feed_dict={self.inp_seq: input, self.out_seq: output})
+
 
 def np_func(fn, inp):
     return fn(inp, dtype='float32')
 
 
 def new_var(size):
-    return tf.Variable(tf.random_uniform(size, 0, 1))
+    return tf.Variable(tf.random_uniform(size, -1, 1))
 
 
 def NN(inp, W, b):
