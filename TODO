@@ -30,6 +30,10 @@ do not use scan==>use only one matrix multiplication
 
 everywhere I use np.zeros or sth==>use float32
 
+when I extend, extend with EOS or nothing(all 0 in the one=hot vector)
+
+I dont use corpus.sizes now. I should use it to trim the end EOS when all od the sentences have same size in a batch.
+
 how can we go from prob to loss (maximum likelihood)
 
 remove print('tmp1') and etc.
