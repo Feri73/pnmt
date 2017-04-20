@@ -1,5 +1,4 @@
 import tensorflow as tf
-import numpy as np
 
 import os.path
 
@@ -98,10 +97,10 @@ class Translator:
         h = o * tf.tanh(C)
         return C, h  # , c
 
-    def add_to_dec_weights(self, inp_size, hid_size, last_hid_size=-1):
-        if last_hid_size == -1:
-            last_hid_size = hid_size
-        tmp = hid_size + last_hid_size
+    def add_to_dec_weights(self, inp_size, hid_size, context_size):
+        # if last_hid_size == -1:
+        # last_hid_size = hid_size
+        tmp = context_size + hid_size  # last_hid_size
         self.dec_Wf.append(new_var([hid_size, tmp + inp_size]))
         self.dec_Wi.append(new_var([hid_size, tmp + inp_size]))
         self.dec_Wc.append(new_var([hid_size, tmp + inp_size]))
@@ -113,14 +112,14 @@ class Translator:
 
     def add_encoder_layer(self, inp, hid_size):
         self.add_to_enc_weights(int(inp.shape[1]), hid_size)
-        initial = 2 * (np_func(np.zeros, [hid_size, 1]),)  # why not tf.zeros
+        initial = 2 * (zeros([hid_size, tf.shape(inp)[2]]),)
         return tf.scan(lambda a, x: self.enc_elem(a[0], a[1], x, len(self.enc_Wf) - 1), inp, initializer=initial)[1]
 
-    def add_decoder_layer(self, inp, contexts, hid_size, last_hid_size=-1):
-        self.add_to_dec_weights(int(inp.shape[1]), hid_size, last_hid_size)
-        initial = 2 * (tf.zeros([hid_size, 1]),)
-        return tf.scan(lambda a, x: self.dec_elem(a[0], a[1], x[:, 1], x[:, 0], len(self.dec_Wf) - 1),
-                       tf.expand_dims(tf.concat([inp, contexts], -1), -1), initializer=initial)[1]
+    def add_decoder_layer(self, inp, contexts, hid_size):
+        self.add_to_dec_weights(int(inp.shape[1]), hid_size, int(contexts[0].shape[0]))
+        initial = 2 * (zeros([hid_size, tf.shape(inp)[2]]),)
+        return tf.scan(lambda a, x: self.dec_elem(a[0], a[1], x[1], x[0], len(self.dec_Wf) - 1), (inp, contexts),
+                       initializer=initial)[1]
 
     def attention_function(self, st_y_prev, st_x):
         W0 = self.att_W[0]
@@ -142,11 +141,15 @@ class Translator:
             return C, h, c
 
         def get_context(st_prev):
-            res = tf.scan(lambda a, x: self.attention_function(st_prev, x)[0, 0], enc_layers[-1], initializer=float(0))
-            return tf.matmul(tf.transpose(enc_layers[-1][:, :, 0]), tf.expand_dims(tf.nn.softmax(res), 1))  # better
+            res = tf.scan(lambda a, x: self.attention_function(st_prev, x), enc_layers[-1],
+                          initializer=zeros([1, tf.shape(enc_layers[-1])[2]]))
+            return \
+                tf.transpose(
+                    tf.matmul(tf.transpose(enc_layers[-1]), tf.transpose(tf.nn.softmax(res, dim=0)), False, True))[
+                    0]  # better #softmax dimension==>REALY IMPORTANT
 
-        self.inp_seq = tf.placeholder(tf.float32, [None, self.INP_VOCAB_SIZE, 1])
-        self.out_seq = tf.placeholder(tf.float32, [None, self.OUT_VOCAB_SIZE, 1])
+        self.inp_seq = tf.placeholder(tf.float32, [None, self.INP_VOCAB_SIZE, None])  # words_n, word_i, sentences_n
+        self.out_seq = tf.placeholder(tf.float32, [None, self.OUT_VOCAB_SIZE, None])
 
         enc_layers = []
 
@@ -164,29 +167,23 @@ class Translator:
         self.add_attention_weights(self.DECODER_HIDDEN_SIZE + self.ENCODER_HIDDEN_SIZE, self.ATTENTION_HIDDEN_SIZE)
         dec_layers = []
 
-        self.add_to_dec_weights(int(self.out_seq.shape[1]), self.DECODER_HIDDEN_SIZE)
-        initial = (tf.zeros([self.DECODER_HIDDEN_SIZE, 1]), tf.zeros([self.DECODER_HIDDEN_SIZE, 1]),
-                   tf.zeros([self.ENCODER_HIDDEN_SIZE, 1]))
+        self.add_to_dec_weights(int(self.out_seq.shape[1]), self.DECODER_HIDDEN_SIZE, self.ENCODER_HIDDEN_SIZE)
+        initial = (zeros([self.DECODER_HIDDEN_SIZE, tf.shape(self.out_seq)[2]]),
+                   zeros([self.DECODER_HIDDEN_SIZE, tf.shape(self.out_seq)[2]]),
+                   zeros([self.ENCODER_HIDDEN_SIZE, tf.shape(self.out_seq)[2]]))
         _, h, contexts = tf.scan(lambda a, x: dec_first_layer_elem(a[0], a[1], a[2], x, len(self.dec_Wf) - 1),
-                                 self.out_seq,
-                                 initializer=initial)
+                                 self.out_seq, initializer=initial)
+
         dec_layers.append(h)
         for i in range(self.DECODER_LAYERS - 1):
             inp = dec_layers[-1]
             if i > 0:
                 inp = inp + dec_layers[-2]
             if i < self.DECODER_LAYERS - 2:
-                last_hid_size = -1
                 hid_size = self.DECODER_HIDDEN_SIZE
             else:
-                last_hid_size = self.DECODER_HIDDEN_SIZE
                 hid_size = self.OUT_VOCAB_SIZE
-            dec_layers.append(self.add_decoder_layer(inp, contexts, hid_size, last_hid_size))
-
-        # self.trans = tf.scan(lambda a, x: tf.nn.softmax(x), dec_layers[-1])
-
-        # self.gg = dec_layers
-        # self.conts = contexts
+            dec_layers.append(self.add_decoder_layer(inp, contexts, hid_size))
 
         self.trans = tf.nn.softmax(dec_layers[-1], dim=1)
 
@@ -239,3 +236,8 @@ def sigmoidNN(inp, W, b):
 
 def tanhNN(inp, W, b):
     return tf.tanh(NN(inp, W, b))
+
+
+def zeros(shape):
+    res = tf.stack(shape)
+    return tf.fill(res, 0.0)

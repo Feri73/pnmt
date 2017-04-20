@@ -4,12 +4,11 @@ import pickle
 import numpy as np
 
 import codecs
-
 import os.path
 
 
 class Corpus:
-    def __init__(self, config):
+    def __init__(self, config, inds=None):
         self.PUNCS = config.puncs or list(string.punctuation) + [' ', '\n']
         self.SAVE_DIR = config.save_dir
         self.name = config.name
@@ -23,11 +22,12 @@ class Corpus:
         self.datas = []
         self.indexes = []
         self.sizes = []
+        self.inds = []
         self.div_index = 0
 
-        self.load_data()
+        self.load_data(inds)
 
-    def load_data(self):
+    def load_data(self, inds):
         path = self.SAVE_DIR + '\\' + self.name
         if not os.path.exists(self.SAVE_DIR):
             os.makedirs(self.SAVE_DIR)
@@ -38,6 +38,7 @@ class Corpus:
             self._load_property('indexes')
             self._load_property('sizes')
             self._load_property('div_index')
+            self._load_property('inds')
             self.vocab_size = len(self.words)
         else:
             file = codecs.open(self.data_addr, 'r', self.encoding)
@@ -47,7 +48,7 @@ class Corpus:
             file.close()
             self.tokens, sentences = self.find_tokens(sentences)
             self.vocab_size = min(self.vocab_size, len(self.tokens))
-            self.datas, self.sizes = self.tokenize(sentences)
+            self.datas, self.sizes, self.inds = self.tokenize(sentences, inds)
             self.words = [x[0] for x in sorted(list(self.tokens.items()), key=lambda x: x[1])]
             self.indexes = [0 for _ in self.divs_size]
             self.div_index = 0
@@ -57,6 +58,7 @@ class Corpus:
             self._save_property('indexes')
             self._save_property('sizes')
             self._save_property('div_index')
+            self._save_property('inds')
         return self.vocab_size
 
     def find_words(self, str):
@@ -93,23 +95,27 @@ class Corpus:
         tokens['UNK'] = len(tokens)
         return tokens, sents
 
-    def tokenize(self, sentences):
+    def tokenize(self, sentences, inds):
         sizes = [len(s) for s in sentences]
         mmax = max(sizes)
-        self.divs_size = self.divs_size + [mmax] if mmax > self.divs_size[-1] else self.divs_size
-        inds = [[] for _ in range(len(self.divs_size))]
-        for i, s in enumerate(sentences):
-            for j, n in enumerate(self.divs_size):
-                if len(s) <= n:
-                    inds[j].append(i)
-                    break
-        result = [np.zeros([len(inds[j]), n, self.vocab_size], dtype='float32') for j, n in enumerate(self.divs_size)]
+        if inds:
+            self.divs_size = [max([len(sentences[i]) for i in iss] or [0]) for iss in inds]
+        else:
+            self.divs_size = self.divs_size + [mmax] if mmax > self.divs_size[-1] else self.divs_size
+            inds = [[] for _ in range(len(self.divs_size))]
+            for i, s in enumerate(sentences):
+                for j, n in enumerate(self.divs_size):
+                    if len(s) <= n:
+                        inds[j].append(i)
+                        break
+        result = [np.zeros([n, self.vocab_size, len(inds[j])], dtype='float32') for j, n in enumerate(self.divs_size)]
         for j, n in enumerate(self.divs_size):
             for i, si in enumerate(inds[j]):
                 for k in range(n):
                     w = sentences[si][k] if k < len(sentences[si]) else 'EOS'
-                    result[j][i, k, self.tokens[w]] = 1
-        return result, sizes
+                    w_index = self.tokens[w] if w in self.tokens else self.tokens['UNK']
+                    result[j][k, w_index, i] = 1
+        return result, sizes, inds
 
     def save_corpus_state(self):
         self._save_property('indexes')
@@ -123,16 +129,14 @@ class Corpus:
         while len(self.datas[self.div_index]) == 0:
             self.div_index = (self.div_index + 1) % len(self.divs_size)
         d_size = len(self.datas[self.div_index])
-        size = min(size, d_size)
         start = self.indexes[self.div_index]
-        end = (start + size) % d_size
+        end = min(start + min(size, d_size), d_size)  # I don't do (start+size)%d_size
         res = self.datas[self.div_index][start:end]
-        self.indexes[self.div_index] = end
+        self.indexes[self.div_index] = end % d_size
         self.div_index = (self.div_index + 1) % len(self.divs_size)
         if save:
             self.save_corpus_state()
         return res
-        # return np.array(res, dtype='float32')
 
     def _save_property(self, p_name):
         with open(self.SAVE_DIR + '\\' + self.name + p_name, 'wb+') as file:

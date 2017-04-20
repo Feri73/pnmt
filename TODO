@@ -11,6 +11,11 @@ hidden size of the last decoder layer os VOCAB_SIZE but others is HIDDEN_SIZE
 
 how tensorflow parallelizes
 
+check model to be correct
+
+
+IMPORTANT TAG in model should be checked (softmax layer in attention)
+
 GPU
 
 object oriented
