@@ -177,6 +177,7 @@ class Translator:
 
         self.inp_seq = tf.placeholder(tf.int32, [None, None])  # words_n, sentences_n
         self.out_seq = tf.placeholder(tf.int32, [None, None])
+        self.out_seq2=tf.placeholder(tf.float32, [None,self.OUT_VOCAB_SIZE, None])
 
         enc_layers = []
 
@@ -212,24 +213,29 @@ class Translator:
                 hid_size = self.OUT_VOCAB_SIZE
             dec_layers.append(self.add_decoder_layer(inp, contexts, hid_size))
 
+
+        self.gg=dec_layers
+
+
         self.trans = tf.nn.softmax(dec_layers[-1], dim=1)
 
-        self.cross_entropy = -tf.reduce_mean(tf.scan(lambda a, x: (a[0] + 1, tf.scan(
-            lambda a2, x2: (a2[0] + 1, a2[1] + tf.log(x2[self.out_seq[a2[0], a[0]]])), tf.transpose(x), (0, 0.0))[1][
-            -1]), tf.transpose(self.trans), (0, 0.0))[1])  # is indexing of out_seq OK??
+        # self.cross_entropy = -tf.reduce_mean(tf.scan(lambda a, x: (a[0] + 1, tf.reduce_mean(
+        #     tf.scan(lambda a2, x2: (a2[0] + 1, tf.log(x2[self.out_seq[a2[0], a[0]]])), tf.transpose(x), (0, 0.0))[1])),
+        #                                              tf.transpose(self.trans), (0, 0.0))[
+        #     1])  # is indexing of out_seq OK??
 
-        # self.cross_entropy = tf.reduce_mean(
-        # -tf.reduce_sum(tf.transpose(tf.gather(tf.transpose(tf.log(self.trans)), self.out_seq)), reduction_indices=[
-        # 1]))  # use built in tensorflow methods, use indexing instead of multiplying
+        self.cross_entropy = tf.reduce_mean(
+        -tf.reduce_sum(self.out_seq2*tf.log(self.trans), reduction_indices=[
+        1]))  # use built in tensorflow methods, use indexing instead of multiplying
         self.train_step = tf.train.GradientDescentOptimizer(self.RATE).minimize(self.cross_entropy)
         # self.train_step = tf.train.AdamOptimizer(self.RATE).minimize(self.cross_entropy)
         self.init_op = tf.global_variables_initializer()
 
         self.sess = tf.Session()
 
-    def train_model(self, x, y):  # use batches
-        self.sess.run(self.train_step, feed_dict={self.inp_seq: x, self.out_seq: y})
-        return self.sess.run(self.cross_entropy, feed_dict={self.inp_seq: x, self.out_seq: y})
+    def train_model(self, x, y,z):  # use batches
+        self.sess.run(self.train_step, feed_dict={self.inp_seq: x, self.out_seq: y, self.out_seq2:z})
+        return self.sess.run(self.cross_entropy, feed_dict={self.inp_seq: x, self.out_seq: y, self.out_seq2:z})
 
     def _load_model(self):
         self.create_graph()

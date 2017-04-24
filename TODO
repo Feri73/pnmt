@@ -48,3 +48,6 @@ remove print('tmp1') and etc.
 ******** word2vec vs indexing??
 
 ************initialization results in NaN==>for cross entropy
+
+
+loss function is mean of mean of sentences

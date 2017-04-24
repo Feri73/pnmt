@@ -31,7 +31,7 @@ tr_config.encoder_hidden_size = 6
 tr_config.attention_hidden_size = 6
 tr_config.decoder_layers = 2
 tr_config.decoder_hidden_size = 6
-tr_config.rate = 50
+tr_config.rate = 1
 tr_config.name = 'en_fa_nmt'
 tr_config.save_dir = 'F:\\Faraz\\University\\Thesis\\pnmt\\cache\\model'
 translator = Translator(tr_config)
@@ -40,11 +40,22 @@ EPOCH_SIZE = 10000
 BATCH_SIZE = 100
 PRINT_PER = 10
 SAVE_PER = 100
+import numpy as np
 for i in range(EPOCH_SIZE * int(sum([len(x) for x in en_corpus.datas]) / BATCH_SIZE)):  # use batch==>also in model
     try:
         x = en_corpus.next_batch(BATCH_SIZE)
         y = fa_corpus.next_batch(BATCH_SIZE)
-        lost = translator.train_model(x, y)
+        x1=np.zeros([x.shape[0],500,x.shape[1]],dtype='float32')
+        y1=np.zeros([y.shape[0],500,y.shape[1]],dtype='float32')
+        for i in range(x.shape[0]):
+            for j in range(x.shape[1]):
+                x1[i,x[i,j],j]=1
+
+        for i in range(y.shape[0]):
+            for j in range(y.shape[1]):
+                y1[i,y[i,j],j]=1
+
+        lost = translator.train_model(x, y,y1)
         if i % PRINT_PER == 0:
             assert en_corpus.indexes == fa_corpus.indexes
             assert en_corpus.div_index == fa_corpus.div_index
@@ -55,9 +66,9 @@ for i in range(EPOCH_SIZE * int(sum([len(x) for x in en_corpus.datas]) / BATCH_S
             # print(fa_corpus.to_words(translator.helped_translate(x[:, :, 0:1], y[:, :, 0:1])))
         if i % SAVE_PER == 0:
             print('saving...')
-            en_corpus.save_corpus_state()
-            fa_corpus.save_corpus_state()
-            translator.save_model()
+            # en_corpus.save_corpus_state()
+            # fa_corpus.save_corpus_state()
+            # translator.save_model()
             print('finished')
     except KeyboardInterrupt:
         break
