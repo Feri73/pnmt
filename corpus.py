@@ -108,13 +108,13 @@ class Corpus:
                     if len(s) <= n:
                         inds[j].append(i)
                         break
-        result = [np.zeros([n, self.vocab_size, len(inds[j])], dtype='float32') for j, n in enumerate(self.divs_size)]
+        result = [np.zeros([n, len(inds[j])], dtype='int32') for j, n in enumerate(self.divs_size)]
         for j, n in enumerate(self.divs_size):
             for i, si in enumerate(inds[j]):
                 for k in range(n):
                     w = sentences[si][k] if k < len(sentences[si]) else 'EOS'
                     w_index = self.tokens[w] if w in self.tokens else self.tokens['UNK']
-                    result[j][k, w_index, i] = 1
+                    result[j][k, i] = w_index
         return result, sizes, inds
 
     def save_corpus_state(self):

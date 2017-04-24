@@ -3,9 +3,9 @@ embed words before feeding to NN
 init weights to random==>don't forget seeds
 specify places that you can do W[x] instead of W*x
 read comments
-what is decoder LSTM equation?
+*****************what is decoder LSTM equation?
 change all dims and axes to -1(or -n)
-decoder initial states
+*****************decoder initial states
 
 hidden size of the last decoder layer os VOCAB_SIZE but others is HIDDEN_SIZE
 
@@ -28,17 +28,23 @@ self graph in addition to weights
 
 I suppose that the output of the decoder at layer 8 is used as decoder layer 1 input: if yes==>parallelism, if no==> what the input is?
 
-change reshape to expand_dimes
+change reshape to expand_dims
 
 do not use scan==>use only one matrix multiplication
 
+warning of tf
 
 everywhere I use np.zeros or sth==>use float32
 
-when I extend, extend with EOS or nothing(all 0 in the one=hot vector)
+************when I extend, extend with EOS or nothing(all 0 in the one=hot vector)==>size prblems generally
 
 I dont use corpus.sizes now. I should use it to trim the end EOS when all od the sentences have same size in a batch.
 
 how can we go from prob to loss (maximum likelihood)
 
 remove print('tmp1') and etc.
+
+************* how cross entropy error is summed over?
+******** word2vec vs indexing??
+
+************initialization results in NaN==>for cross entropy

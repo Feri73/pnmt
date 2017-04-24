@@ -27,10 +27,10 @@ tr_config = Bunch()
 tr_config.inp_vocab_size = en_corpus.vocab_size
 tr_config.out_vocab_size = fa_corpus.vocab_size
 tr_config.encoder_layers = 2
-tr_config.encoder_hidden_size = 5
-tr_config.attention_hidden_size = 5
+tr_config.encoder_hidden_size = 6
+tr_config.attention_hidden_size = 6
 tr_config.decoder_layers = 2
-tr_config.decoder_hidden_size = 5
+tr_config.decoder_hidden_size = 6
 tr_config.rate = 50
 tr_config.name = 'en_fa_nmt'
 tr_config.save_dir = 'F:\\Faraz\\University\\Thesis\\pnmt\\cache\\model'
@@ -48,10 +48,11 @@ for i in range(EPOCH_SIZE * int(sum([len(x) for x in en_corpus.datas]) / BATCH_S
         if i % PRINT_PER == 0:
             assert en_corpus.indexes == fa_corpus.indexes
             assert en_corpus.div_index == fa_corpus.div_index
+            # print(translator.sess.run(translator.trans,{translator.inp_seq: x, translator.out_seq: y}))
             print(i, ': ', lost)
-            print(en_corpus.to_words(x[:, :, 0]))
-            print(fa_corpus.to_words(y[:, :, 0]))
-            print(fa_corpus.to_words(translator.helped_translate(x[:, :, 0:1], y[:, :, 0:1])))
+            # print(en_corpus.to_words(x[:, :, 0]))
+            # print(fa_corpus.to_words(y[:, :, 0]))
+            # print(fa_corpus.to_words(translator.helped_translate(x[:, :, 0:1], y[:, :, 0:1])))
         if i % SAVE_PER == 0:
             print('saving...')
             en_corpus.save_corpus_state()
