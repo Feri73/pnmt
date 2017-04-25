@@ -15,7 +15,8 @@ class Corpus:
         self.data_addr = config.data_addr
         self.vocab_size = config.vocab_size
         self.encoding = config.encoding or 'ascii'
-        self.divs_size = config.divs_size
+        if not inds:
+            self.divs_size = config.divs_size
 
         self.words = []
         self.tokens = []
@@ -39,6 +40,7 @@ class Corpus:
             self._load_property('sizes')
             self._load_property('div_index')
             self._load_property('inds')
+            self._load_property('divs_size')
             self.vocab_size = len(self.words)
         else:
             file = codecs.open(self.data_addr, 'r', self.encoding)
@@ -59,6 +61,7 @@ class Corpus:
             self._save_property('sizes')
             self._save_property('div_index')
             self._save_property('inds')
+            self._save_property('divs_size')
         return self.vocab_size
 
     def find_words(self, str):
@@ -108,13 +111,13 @@ class Corpus:
                     if len(s) <= n:
                         inds[j].append(i)
                         break
-        result = [np.zeros([n, self.vocab_size, len(inds[j])], dtype='float32') for j, n in enumerate(self.divs_size)]
+        result = [np.zeros([n, len(inds[j])], dtype='int32') for j, n in enumerate(self.divs_size)]
         for j, n in enumerate(self.divs_size):
             for i, si in enumerate(inds[j]):
                 for k in range(n):
                     w = sentences[si][k] if k < len(sentences[si]) else 'EOS'
                     w_index = self.tokens[w] if w in self.tokens else self.tokens['UNK']
-                    result[j][k, w_index, i] = 1
+                    result[j][k, i] = w_index
         return result, sizes, inds
 
     def save_corpus_state(self):
@@ -128,10 +131,10 @@ class Corpus:
     def next_batch(self, size, save=False):  # poor performance
         while len(self.datas[self.div_index]) == 0:
             self.div_index = (self.div_index + 1) % len(self.divs_size)
-        d_size = len(self.datas[self.div_index])
+        d_size = self.datas[self.div_index].shape[1]
         start = self.indexes[self.div_index]
         end = min(start + min(size, d_size), d_size)  # I don't do (start+size)%d_size
-        res = self.datas[self.div_index][start:end]
+        res = self.datas[self.div_index][:, start:end]
         self.indexes[self.div_index] = end % d_size
         self.div_index = (self.div_index + 1) % len(self.divs_size)
         if save:

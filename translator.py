@@ -61,7 +61,7 @@ class Translator:
         self.enc_bc.append(new_var([hid_size, 1]))
         self.enc_bo.append(new_var([hid_size, 1]))
 
-    def enc_elem(self, C_prev, h_prev, x, enc_layer_index):
+    def enc_elem(self, C_prev, h_prev, x, enc_layer_index, one_hot=False, one_hot_size=None):
         Wf = self.enc_Wf[enc_layer_index]
         bf = self.enc_bf[enc_layer_index]
         Wi = self.enc_Wi[enc_layer_index]
@@ -70,16 +70,27 @@ class Translator:
         bc = self.enc_bc[enc_layer_index]
         Wo = self.enc_Wo[enc_layer_index]
         bo = self.enc_bo[enc_layer_index]
-        tmp = tf.concat([x, h_prev], 0)  # axis is 1??
-        f = sigmoidNN(tmp, Wf, bf)
-        i = sigmoidNN(tmp, Wi, bi)
-        C_h = tanhNN(tmp, Wc, bc)
+        if one_hot:
+            tmp = h_prev
+            f = tf.matmul(Wf[:, one_hot_size:], tmp)
+            f = tf.sigmoid(f + tf.transpose(tf.gather(tf.transpose(Wf[:, :one_hot_size]), x)) + bf)
+            i = tf.matmul(Wi[:, one_hot_size:], tmp)
+            i = tf.sigmoid(i + tf.transpose(tf.gather(tf.transpose(Wi[:, :one_hot_size]), x)) + bi)
+            C_h = tf.matmul(Wc[:, one_hot_size:], tmp)
+            C_h = tf.sigmoid(C_h + tf.transpose(tf.gather(tf.transpose(Wc[:, :one_hot_size]), x)) + bc)
+            o = tf.matmul(Wo[:, one_hot_size:], tmp)
+            o = tf.sigmoid(o + tf.transpose(tf.gather(tf.transpose(Wo[:, :one_hot_size]), x)) + bo)
+        else:
+            tmp = tf.concat([x, h_prev], 0)  # axis is 1??
+            f = sigmoidNN(tmp, Wf, bf)
+            i = sigmoidNN(tmp, Wi, bi)
+            C_h = tanhNN(tmp, Wc, bc)
+            o = sigmoidNN(tmp, Wo, bo)
         C = f * C_prev + i * C_h
-        o = sigmoidNN(tmp, Wo, bo)
         h = o * tf.tanh(C)
         return C, h
 
-    def dec_elem(self, C_prev, h_prev, c, x, dec_layer_index):
+    def dec_elem(self, C_prev, h_prev, c, x, dec_layer_index, one_hot=False, one_hot_size=None):
         Wf = self.dec_Wf[dec_layer_index]
         bf = self.dec_bf[dec_layer_index]
         Wi = self.dec_Wi[dec_layer_index]
@@ -88,12 +99,23 @@ class Translator:
         bc = self.dec_bc[dec_layer_index]
         Wo = self.dec_Wo[dec_layer_index]
         bo = self.dec_bo[dec_layer_index]
-        tmp = tf.concat([x, h_prev, c], 0)  # axis is 1??
-        f = sigmoidNN(tmp, Wf, bf)
-        i = sigmoidNN(tmp, Wi, bi)
-        C_h = tanhNN(tmp, Wc, bc)
+        if one_hot:
+            tmp = tf.concat([h_prev, c], 0)
+            f = tf.matmul(Wf[:, one_hot_size:], tmp)
+            f = tf.sigmoid(f + tf.transpose(tf.gather(tf.transpose(Wf[:, :one_hot_size]), x)) + bf)
+            i = tf.matmul(Wi[:, one_hot_size:], tmp)
+            i = tf.sigmoid(i + tf.transpose(tf.gather(tf.transpose(Wi[:, :one_hot_size]), x)) + bi)
+            C_h = tf.matmul(Wc[:, one_hot_size:], tmp)
+            C_h = tf.sigmoid(C_h + tf.transpose(tf.gather(tf.transpose(Wc[:, :one_hot_size]), x)) + bc)
+            o = tf.matmul(Wo[:, one_hot_size:], tmp)
+            o = tf.sigmoid(o + tf.transpose(tf.gather(tf.transpose(Wo[:, :one_hot_size]), x)) + bo)
+        else:
+            tmp = tf.concat([x, h_prev, c], 0)  # axis is 1??
+            f = sigmoidNN(tmp, Wf, bf)
+            i = sigmoidNN(tmp, Wi, bi)
+            C_h = tanhNN(tmp, Wc, bc)
+            o = sigmoidNN(tmp, Wo, bo)
         C = f * C_prev + i * C_h
-        o = sigmoidNN(tmp, Wo, bo)
         h = o * tf.tanh(C)
         return C, h  # , c
 
@@ -110,10 +132,12 @@ class Translator:
         self.dec_bc.append(new_var([hid_size, 1]))
         self.dec_bo.append(new_var([hid_size, 1]))
 
-    def add_encoder_layer(self, inp, hid_size):
-        self.add_to_enc_weights(int(inp.shape[1]), hid_size)
-        initial = 2 * (zeros([hid_size, tf.shape(inp)[2]]),)
-        return tf.scan(lambda a, x: self.enc_elem(a[0], a[1], x, len(self.enc_Wf) - 1), inp, initializer=initial)[1]
+    def add_encoder_layer(self, inp, hid_size, one_hot=False, one_hot_size=None):
+        sz = one_hot_size or int(inp.shape[1])
+        self.add_to_enc_weights(sz, hid_size)
+        initial = 2 * (zeros([hid_size, tf.shape(inp)[-1]]),)
+        return tf.scan(lambda a, x: self.enc_elem(a[0], a[1], x, len(self.enc_Wf) - 1, one_hot, one_hot_size), inp,
+                       initializer=initial)[1]
 
     def add_decoder_layer(self, inp, contexts, hid_size):
         self.add_to_dec_weights(int(inp.shape[1]), hid_size, int(contexts[0].shape[0]))
@@ -136,7 +160,7 @@ class Translator:
 
     def create_graph(self):
         def dec_first_layer_elem(C_prev, h_prev, c, x, dec_layer_index):
-            C, h = self.dec_elem(C_prev, h_prev, c, x, dec_layer_index)
+            C, h = self.dec_elem(C_prev, h_prev, c, x, dec_layer_index, True, self.OUT_VOCAB_SIZE)
             c = get_context(h)
             return C, h, c
 
@@ -148,14 +172,14 @@ class Translator:
                     tf.matmul(tf.transpose(enc_layers[-1]), tf.transpose(tf.nn.softmax(res, dim=0)), False, True))[
                     0]  # better #softmax dimension==>REALY IMPORTANT
 
-        self.inp_seq = tf.placeholder(tf.float32, [None, self.INP_VOCAB_SIZE, None])  # words_n, word_i, sentences_n
-        self.out_seq = tf.placeholder(tf.float32, [None, self.OUT_VOCAB_SIZE, None])
+        self.inp_seq = tf.placeholder(tf.int32, [None, None])  # words_n, word_i, sentences_n
+        self.out_seq = tf.placeholder(tf.int32, [None, None])
 
         enc_layers = []
 
-        lstmf = self.add_encoder_layer(self.inp_seq, int(self.ENCODER_HIDDEN_SIZE / 2))
-        lstmb = self.add_encoder_layer(tf.reverse(self.inp_seq, [-1]),
-                                       int(self.ENCODER_HIDDEN_SIZE / 2))  # HIDDEN_SIZE/2 is OK????
+        lstmf = self.add_encoder_layer(self.inp_seq, int(self.ENCODER_HIDDEN_SIZE / 2), True, self.INP_VOCAB_SIZE)
+        lstmb = self.add_encoder_layer(tf.reverse(self.inp_seq, [-1]), int(self.ENCODER_HIDDEN_SIZE / 2), True,
+                                       self.INP_VOCAB_SIZE)  # HIDDEN_SIZE/2 is OK????
         enc_layers.append(tf.concat([lstmf, lstmb], 1))
 
         for i in range(self.ENCODER_LAYERS - 1):
@@ -167,10 +191,10 @@ class Translator:
         self.add_attention_weights(self.DECODER_HIDDEN_SIZE + self.ENCODER_HIDDEN_SIZE, self.ATTENTION_HIDDEN_SIZE)
         dec_layers = []
 
-        self.add_to_dec_weights(int(self.out_seq.shape[1]), self.DECODER_HIDDEN_SIZE, self.ENCODER_HIDDEN_SIZE)
-        initial = (zeros([self.DECODER_HIDDEN_SIZE, tf.shape(self.out_seq)[2]]),
-                   zeros([self.DECODER_HIDDEN_SIZE, tf.shape(self.out_seq)[2]]),
-                   zeros([self.ENCODER_HIDDEN_SIZE, tf.shape(self.out_seq)[2]]))
+        self.add_to_dec_weights(self.OUT_VOCAB_SIZE, self.DECODER_HIDDEN_SIZE, self.ENCODER_HIDDEN_SIZE)
+        initial = (zeros([self.DECODER_HIDDEN_SIZE, tf.shape(self.out_seq)[-1]]),
+                   zeros([self.DECODER_HIDDEN_SIZE, tf.shape(self.out_seq)[-1]]),
+                   zeros([self.ENCODER_HIDDEN_SIZE, tf.shape(self.out_seq)[-1]]))
         _, h, contexts = tf.scan(lambda a, x: dec_first_layer_elem(a[0], a[1], a[2], x, len(self.dec_Wf) - 1),
                                  self.out_seq, initializer=initial)
 
@@ -187,8 +211,13 @@ class Translator:
 
         self.trans = tf.nn.softmax(dec_layers[-1], dim=1)
 
-        self.cross_entropy = tf.reduce_mean(-tf.reduce_sum(self.out_seq * tf.log(self.trans), reduction_indices=[
-            1]))  # use built in tensorflow methods, use indexing instead of multiplying
+        self.cross_entropy = -tf.reduce_mean(tf.scan(lambda a, x: (a[0] + 1, tf.reduce_mean(
+            tf.scan(lambda a2, x2: (a2[0] + 1, tf.log(x2[self.out_seq[a2[0], a[0]]])), tf.transpose(x), (0, 0.0))[1])),
+                                                     tf.transpose(self.trans), (0, 0.0))[
+            1])  # is indexing of out_seq OK??
+
+        # self.cross_entropy = tf.reduce_mean(-tf.reduce_sum(self.out_seq * tf.log(self.trans), reduction_indices=[
+        #     1]))  # use built in tensorflow methods, use indexing instead of multiplying
         self.train_step = tf.train.GradientDescentOptimizer(self.RATE).minimize(self.cross_entropy)
         # self.train_step = tf.train.AdamOptimizer(self.RATE).minimize(self.cross_entropy)
         self.init_op = tf.global_variables_initializer()

@@ -42,3 +42,8 @@ I dont use corpus.sizes now. I should use it to trim the end EOS when all od the
 how can we go from prob to loss (maximum likelihood)
 
 remove print('tmp1') and etc.
+
+
+
+
+add a class for one_hot_vector that overrides indexing
