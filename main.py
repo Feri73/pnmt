@@ -43,7 +43,7 @@ tr_config.decoder_hidden_size = int(conf['translator decoder hidden size'])
 tr_config.rate = float(conf['translator initial learning rate'])
 tr_config.name = conf['translator name']
 tr_config.save_dir = 'cache' + os.path.sep + 'model'
-tr_config.residuals = False
+tr_config.residuals = conf['residual connections'] == 'True'
 translator = Translator(tr_config)
 print('training started:')
 EPOCH_NUM = int(conf['epoch size'])
@@ -71,6 +71,7 @@ while data_so_far < EPOCH_NUM * data_size:
             translator.save_model()
             print('finished')
         batch_index += 1
+        data_so_far += x.shape[1]
     except KeyboardInterrupt:
         break
 print('finished')
