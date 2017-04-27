@@ -43,7 +43,8 @@ how can we go from prob to loss (maximum likelihood)
 
 remove print('tmp1') and etc.
 
-
+should add the loss functions of sentences of the batch or average them?
+should add the loss functions of words of a sentence or average them?
 
 
 add a class for one_hot_vector that overrides indexing

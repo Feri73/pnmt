@@ -210,7 +210,7 @@ class Translator:
 
         self.trans = tf.nn.softmax(dec_layers[-1], dim=1)
 
-        self.cross_entropy = -tf.reduce_mean(tf.scan(lambda a, x: (a[0] + 1, tf.reduce_mean(
+        self.cross_entropy = -tf.reduce_sum(tf.scan(lambda a, x: (a[0] + 1, tf.reduce_mean(
             tf.scan(lambda a2, x2: (a2[0] + 1, tf.log(x2[self.out_seq[a2[0], a[0]]])), tf.transpose(x), (0, 0.0))[1])),
                                                      tf.transpose(self.trans), (0, 0.0))[
             1])

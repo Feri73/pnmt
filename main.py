@@ -46,10 +46,10 @@ tr_config.save_dir = 'cache' + os.path.sep + 'model'
 tr_config.residuals = False
 translator = Translator(tr_config)
 print('training started:')
-EPOCH_NUM = 10000
-BATCH_SIZE = 100
-PRINT_PER = 100
-SAVE_PER = 100
+EPOCH_NUM = int(conf['epoch size'])
+BATCH_SIZE = int(conf['batch size'])
+PRINT_PER = int(conf['print period'])
+SAVE_PER = int(conf['save period'])
 
 data_so_far = 0
 data_size = int(sum([len(x) for x in en_corpus.datas]))
