@@ -29,7 +29,7 @@ class Corpus:
         self.load_data(inds)
 
     def load_data(self, inds):
-        path = self.SAVE_DIR + '\\' + self.name
+        path = self.SAVE_DIR + os.path.sep + self.name
         if not os.path.exists(self.SAVE_DIR):
             os.makedirs(self.SAVE_DIR)
         if os.path.isfile(path + 'tokens'):
@@ -142,9 +142,9 @@ class Corpus:
         return res
 
     def _save_property(self, p_name):
-        with open(self.SAVE_DIR + '\\' + self.name + p_name, 'wb+') as file:
+        with open(self.SAVE_DIR + os.path.sep + self.name + p_name, 'wb+') as file:
             pickle.dump(getattr(self, p_name), file)
 
     def _load_property(self, p_name):
-        with open(self.SAVE_DIR + '\\' + self.name + p_name, 'rb') as file:
+        with open(self.SAVE_DIR + os.path.sep + self.name + p_name, 'rb') as file:
             setattr(self, p_name, pickle.load(file))

@@ -15,6 +15,7 @@ class Translator:
         self.RATE = config.rate
         self.name = config.name
         self.SAVE_DIR = config.save_dir
+        self.RESIDUALS = config.residuals
 
         self.enc_Wf = []
         self.enc_bf = []
@@ -117,12 +118,10 @@ class Translator:
             o = sigmoidNN(tmp, Wo, bo)
         C = f * C_prev + i * C_h
         h = o * tf.tanh(C)
-        return C, h  # , c
+        return C, h
 
     def add_to_dec_weights(self, inp_size, hid_size, context_size):
-        # if last_hid_size == -1:
-        # last_hid_size = hid_size
-        tmp = context_size + hid_size  # last_hid_size
+        tmp = context_size + hid_size
         self.dec_Wf.append(new_var([hid_size, tmp + inp_size]))
         self.dec_Wi.append(new_var([hid_size, tmp + inp_size]))
         self.dec_Wc.append(new_var([hid_size, tmp + inp_size]))
@@ -184,7 +183,7 @@ class Translator:
 
         for i in range(self.ENCODER_LAYERS - 1):
             inp = enc_layers[-1]
-            if i > 0:
+            if i > 0 and self.RESIDUALS:
                 inp = inp + enc_layers[-2]
             enc_layers.append(self.add_encoder_layer(inp, self.ENCODER_HIDDEN_SIZE))
 
@@ -201,7 +200,7 @@ class Translator:
         dec_layers.append(h)
         for i in range(self.DECODER_LAYERS - 1):
             inp = dec_layers[-1]
-            if i > 0:
+            if i > 0 and self.RESIDUALS:
                 inp = inp + dec_layers[-2]
             if i < self.DECODER_LAYERS - 2:
                 hid_size = self.DECODER_HIDDEN_SIZE
@@ -214,12 +213,10 @@ class Translator:
         self.cross_entropy = -tf.reduce_mean(tf.scan(lambda a, x: (a[0] + 1, tf.reduce_mean(
             tf.scan(lambda a2, x2: (a2[0] + 1, tf.log(x2[self.out_seq[a2[0], a[0]]])), tf.transpose(x), (0, 0.0))[1])),
                                                      tf.transpose(self.trans), (0, 0.0))[
-            1])  # is indexing of out_seq OK??
+            1])
 
-        # self.cross_entropy = tf.reduce_mean(-tf.reduce_sum(self.out_seq * tf.log(self.trans), reduction_indices=[
-        #     1]))  # use built in tensorflow methods, use indexing instead of multiplying
-        self.train_step = tf.train.GradientDescentOptimizer(self.RATE).minimize(self.cross_entropy)
-        # self.train_step = tf.train.AdamOptimizer(self.RATE).minimize(self.cross_entropy)
+        # self.train_step = tf.train.GradientDescentOptimizer(self.RATE).minimize(self.cross_entropy)
+        self.train_step = tf.train.AdamOptimizer(self.RATE).minimize(self.cross_entropy)
         self.init_op = tf.global_variables_initializer()
 
         self.sess = tf.Session()
@@ -231,7 +228,7 @@ class Translator:
     def _load_model(self):
         self.create_graph()
         self.sess.run(self.init_op)
-        path = self.SAVE_DIR + "\\" + self.name
+        path = self.SAVE_DIR + os.path.sep + self.name
         if os.path.isfile(path + '.index'):
             saver = tf.train.Saver()
             saver.restore(self.sess, path)
@@ -240,7 +237,7 @@ class Translator:
         if not os.path.exists(self.SAVE_DIR):
             os.makedirs(self.SAVE_DIR)
         saver = tf.train.Saver()
-        path = self.SAVE_DIR + "\\" + self.name
+        path = self.SAVE_DIR + os.path.sep + self.name
         saver.save(self.sess, path)
 
     def helped_translate(self, input, output):
